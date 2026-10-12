@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Flowbreaker: XDP</title>
+  <link rel="icon" type="image/png" href="img/favicon.png">
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/addons/" } }
+  </script>
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <div id="app">
+    <header id="hud">
+      <div class="brand">FLOW<span>BREAKER</span><sup>XDP</sup></div>
+      <div class="hud-item"><label>SCORE</label><b id="score">0</b><small id="combo"></small></div>
+      <div class="hud-item"><label>CREDITS</label><b id="credits">0</b><small>¢</small></div>
+      <div class="hud-item integrity"><label>HOST INTEGRITY</label>
+        <div class="bar"><div id="integrity-bar" class="ok"></div></div><small id="integrity">100</small></div>
+      <div class="hud-item"><label>INGRESS</label><b id="stat-pps">0</b><small>pkt/s</small></div>
+      <div class="hud-item"><label>DROPPED</label><b id="stat-drop">0</b><small>by you</small></div>
+      <div class="spacer"></div>
+      <button id="btn-build" title="Build mode (B)">⊕ <small><span id="cost-turret">60</span>¢</small></button>
+      <button id="btn-tank" title="Drive the tank (T)">▣ TANK</button>
+      <button id="btn-heli" title="Fly the helicopter (H)">🚁 HELI</button>
+      <button id="btn-jet" title="Fly the jet (J)">✈ JET</button>
+      <button id="btn-strike" title="Call an airstrike (F)">💥 <small>×<span id="strikes">1</span></small></button>
+      <button id="btn-pause" title="Pause (P)">❚❚</button>
+      <button id="btn-mute" title="Mute (M)">🔊</button>
+      <button id="btn-panic" class="panic" title="Clear all blocks (Esc)">PANIC</button>
+      <div class="ifbox"><span id="conn" class="conn">…</span><span id="iface">–</span></div>
+    </header>
+    <main>
+      <div id="stage">
+        <div id="boss" hidden><div id="boss-name">ELEPHANT FLOW</div><div class="boss-bar"><div id="boss-hp"></div></div><div id="boss-count" class="dim"></div></div>
+        <div id="banner"></div>
+        <div id="strike-lane" hidden></div>
+        <div id="hud-bottom">
+          <div id="buffs"></div>
+          <div id="weapons"></div>
+          <div id="mode-hint"></div>
+        </div>
+      </div>
+      <aside id="panel">
+        <section id="profile">
+          <div class="pf-top"><span id="pf-level">LVL 1</span><b id="pf-rank">Script Kiddie</b></div>
+          <div class="bar xp"><div id="pf-xp"></div></div>
+          <div class="pf-bottom"><span id="pf-xptext" class="dim"></span><span><b id="pf-kp">0</b> KP</span></div>
+          <button id="btn-research">★ RESEARCH &amp; MEDALS</button>
+        </section>
+        <section>
+          <h2>Firewall rules <span id="rule-count" class="pill">0</span></h2>
+          <ul id="rules"><li class="empty">No rules yet. Shoot something!</li></ul>
+        </section>
+        <section>
+          <h2>Armory</h2>
+          <div id="armory"></div>
+        </section>
+        <section>
+          <h2>Skins</h2>
+          <label class="slider"><span>all packets</span><select id="skin-global"></select></label>
+          <details><summary class="dim">per lane &amp; colours</summary><div id="skin-lanes"></div></details>
+          <button id="skin-reset" class="small">reset skins</button>
+        </section>
+        <section>
+          <h2>Safety</h2>
+          <p class="dim">Rules expire after <b id="ttl">60s</b>. These ports can never be blocked:</p>
+          <p id="protect"></p>
+          <p class="dim">…and neither can these hosts (your Claude session lives here):</p>
+          <p id="protect-hosts"></p>
+          <p class="dim">PANIC (Esc) clears everything. Closing this tab clears all rules within 15 s.</p>
+        </section>
+        <section>
+          <h2>Sampling</h2>
+          <label class="slider"><span>max <b id="eps-val">150</b> packets/s to the UI</span>
+            <input id="eps" type="range" min="10" max="600" step="10" value="150"></label>
+        </section>
+        <section>
+          <h2>Audio</h2>
+          <label class="slider"><span>effects</span><input id="vol-sfx" type="range" min="0" max="100" value="80"></label>
+          <label class="slider"><span>music</span><input id="vol-music" type="range" min="0" max="100" value="45"></label>
+          <p class="dim">M mutes everything. Sound starts after your first click.</p>
+        </section>
+        <section>
+          <h2>Lanes</h2>
+          <div id="legend"></div>
+        </section>
+      </aside>
+    </main>
+    <footer id="hints">
+      <span><kbd>Space</kbd>/click: fire</span>
+      <span><kbd>1</kbd>–<kbd>5</kbd>/wheel: weapon</span>
+      <span><kbd>T</kbd> tank · <kbd>H</kbd> heli · <kbd>J</kbd> jet · <kbd>F</kbd> airstrike · <kbd>G</kbd> AI gunship</span>
+      <span><kbd>B</kbd> build · <kbd>E</kbd> cockpit</span>
+      <span><kbd>P</kbd>: pause · <kbd>M</kbd>: mute</span>
+      <span><kbd>Esc</kbd>: PANIC</span>
+      <span class="legend-inline"><i class="sh"></i>protected <i class="su"></i>suspicious</span>
+    </footer>
+  </div>
+
+  <div id="tooltip" hidden></div>
+  <div id="cockpit" hidden>
+    <div class="ck-frame"></div>
+    <div id="crosshair"><i></i><i></i><i></i><i></i><b></b></div>
+    <div class="ck-panel ck-left">
+      <div class="ck-title">TURRET · <span id="ck-lane">–</span></div>
+      <div>AUTO AMMO <b id="ck-ammo">12/12</b></div>
+      <div class="ck-heat"><div id="ck-heat"></div></div>
+      <div class="dim">manual fire is unlimited</div>
+    </div>
+    <div class="ck-panel ck-right"><div class="ck-title">TARGET LOCK</div><div id="ck-target"><span class="dim">NO TARGET</span></div></div>
+    <div class="ck-help"><kbd>mouse</kbd> aim · <kbd>click</kbd>/<kbd>Space</kbd> fire · <kbd>A</kbd>/<kbd>D</kbd> next turret · <kbd>R</kbd> reload (25¢) · <kbd>E</kbd>/<kbd>Esc</kbd>/right-click exit</div>
+  </div>
+  <div id="toasts"></div>
+
+  <div id="splash" class="overlay" hidden>
+    <div class="splash-card">
+      <img src="img/logo.jpg" alt="Flowbreaker: XDP" width="420" height="420">
+      <button id="btn-start">▶ CLICK TO DEFEND</button>
+      <p class="dim" id="splash-sub">Real packets. Real drops. You are the firewall.</p>
+    </div>
+  </div>
+  <div id="notoken" class="overlay" hidden>
+    <div class="card">
+      <h1>No session token</h1>
+      <p>Open the URL that <code>flowbreaker</code> printed on startup. It looks like <code>http://127.0.0.1:8088/?token=…</code></p>
+      <p class="dim">No root around? Try the <a href="?demo=1">simulated demo</a>.</p>
+    </div>
+  </div>
+  <div id="research" class="overlay" hidden>
+    <div class="card research">
+      <button id="research-close" title="Close">✕</button>
+      <h1>RESEARCH</h1>
+      <p id="rs-head"></p>
+      <h2>Permanent perks</h2>
+      <div id="rs-perks"></div>
+      <p class="dim">Perks apply from the next run. <button id="respec" class="small">refund all</button></p>
+      <h2>Medals</h2>
+      <div id="rs-medals"></div>
+      <h2>Lifetime</h2>
+      <div id="rs-stats"></div>
+    </div>
+  </div>
+  <div id="paused" class="overlay soft" hidden><div class="card"><h1>PAUSED</h1><p class="dim">Traffic keeps flowing, you just aren't watching. Press P to resume.</p></div></div>
+  <div id="gameover" class="overlay" hidden>
+    <div class="card">
+      <h1 class="red">HOST COMPROMISED</h1>
+      <p>Score <b id="go-score">0</b> · <b id="go-kills">0</b> flows blocked</p>
+      <p id="go-summary"></p>
+      <p class="dim">Your kernel rules stay active until they expire.</p>
+      <button id="btn-restart">PLAY AGAIN</button>
+    </div>
+  </div>
+</body>
+</html>

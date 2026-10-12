@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  daemon:
+    name: Daemon + BPF
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # bpf2go needs clang to compile bpf/shooter.bpf.c and llvm-strip to strip
+      # the object. The libbpf headers are vendored in bpf/headers.
+      - name: Install clang/llvm
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends clang llvm
+          clang --version
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      # The generated bindings and the BPF object are committed, so a change to
+      # the C program arrives as a reviewable diff. This catches a .bpf.c edit
+      # whose regenerated object nobody committed. The object is byte-for-byte
+      # reproducible with the same clang major; if ubuntu-latest moves to a new
+      # clang, regenerate with that version (or pin runs-on).
+      - name: BPF object is up to date
+        run: |
+          go generate ./internal/bpfobj/
+          git diff --exit-code -- internal/bpfobj/ \
+            || { echo "::error::internal/bpfobj is stale: run 'make generate' and commit the result"; exit 1; }
+      - name: Vet
+        run: go vet ./...
+      # The verifier and BPF_PROG_TEST_RUN tests need root and skip themselves
+      # here; run them locally with 'make test-bpf'.
+      - name: Test
+        run: go test ./...
+      - name: Build
+        run: go build -o flowbreaker ./cmd/flowbreaker
+
+  web:
+    name: Web UI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # No build step and no package.json: the game is plain ES modules, so a
+      # parse check of every module is the whole gate. Vendored three.js is skipped.
+      - name: Syntax-check ES modules
+        run: |
+          for f in web/js/*.js; do
+            node --experimental-default-type=module --check "$f" || exit 1
+          done
