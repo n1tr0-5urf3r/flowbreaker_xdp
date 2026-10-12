@@ -1,0 +1,41 @@
+name: Release
+
+# Push a tag like v0.1.0 to build the binaries and publish a GitHub release.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      # The BPF object is committed (CI checks it is up to date), so no clang
+      # is needed here. It is little-endian, which covers amd64 and arm64.
+      - name: Test
+        run: go test ./...
+      - name: Build
+        run: |
+          mkdir -p dist
+          for arch in amd64 arm64; do
+            name="flowbreaker_${GITHUB_REF_NAME}_linux_${arch}"
+            CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -trimpath \
+              -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" \
+              -o "dist/$name/flowbreaker" ./cmd/flowbreaker
+            cp README.md scripts/traffic.sh "dist/$name/"
+            tar -C dist -czf "dist/$name.tar.gz" "$name"
+          done
+          cd dist && sha256sum ./*.tar.gz > SHA256SUMS
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/SHA256SUMS
+          generate_release_notes: true

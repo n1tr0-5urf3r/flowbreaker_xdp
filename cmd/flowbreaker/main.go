@@ -22,7 +22,11 @@ import (
 	"flowbreaker/web"
 )
 
+// version is set at release build time via -ldflags "-X main.version=...".
+var version = "dev"
+
 func main() {
+	showVersion := flag.Bool("version", false, "print the version and exit")
 	iface := flag.String("iface", "", "network interface to defend (required)")
 	listen := flag.String("listen", "127.0.0.1:8088", "UI listen address (keep it on loopback)")
 	protect := flag.String("protect", flow.DefaultProtect, "never-droppable proto:port rules, comma separated")
@@ -31,6 +35,10 @@ func main() {
 	maxEPS := flag.Int("max-eps", 150, "max sampled packets per second sent to the UI")
 	sample := flag.Duration("sample", 200*time.Millisecond, "min interval between two samples of the same flow")
 	flag.Parse()
+	if *showVersion {
+		fmt.Println("flowbreaker", version)
+		return
+	}
 
 	if *iface == "" {
 		fmt.Fprintln(os.Stderr, "usage: flowbreaker -iface <dev> [flags]")

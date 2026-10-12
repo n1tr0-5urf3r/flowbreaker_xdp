@@ -7,7 +7,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/n1tr0-5urf3r/flowbreaker/actions/workflows/ci.yml"><img src="https://github.com/n1tr0-5urf3r/flowbreaker/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="https://github.com/n1tr0-5urf3r/flowbreaker_xdp/actions/workflows/ci.yml"><img src="https://github.com/n1tr0-5urf3r/flowbreaker_xdp/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="https://github.com/n1tr0-5urf3r/flowbreaker_xdp/releases/latest"><img src="https://img.shields.io/github/v/release/n1tr0-5urf3r/flowbreaker_xdp?logo=github" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/daemon-Go%201.22-00add8?logo=go&logoColor=white" alt="Go">
   <img src="https://img.shields.io/badge/kernel-eBPF%20%2F%20XDP-f5a623?logo=linux&logoColor=white" alt="eBPF / XDP">
   <img src="https://img.shields.io/badge/game-Three.js%20r170-049ef4?logo=threedotjs&logoColor=white" alt="Three.js">
@@ -123,7 +124,7 @@ flowchart LR
 ### Demo mode (no root, no eBPF)
 
 ```sh
-git clone https://github.com/n1tr0-5urf3r/flowbreaker.git && cd flowbreaker
+git clone https://github.com/n1tr0-5urf3r/flowbreaker_xdp.git && cd flowbreaker_xdp
 make demo        # serves web/ with a built-in traffic simulator
 ```
 
@@ -132,7 +133,16 @@ Nothing is dropped in demo mode.
 
 ### Real mode (your actual NIC)
 
-Requires Linux with BPF and XDP support, clang and Go 1.22+.
+Requires Linux with BPF and XDP support. The quickest way in is a prebuilt binary
+(static, amd64 or arm64; the web UI is embedded) from the
+[latest release](https://github.com/n1tr0-5urf3r/flowbreaker_xdp/releases/latest):
+
+```sh
+tar xzf flowbreaker_v*_linux_amd64.tar.gz && cd flowbreaker_v*_linux_amd64
+sudo ./flowbreaker -iface wlp1s0     # use the interface of your default route
+```
+
+Or build it yourself (clang and Go 1.22+):
 
 ```sh
 make             # bpf2go generate + go build
@@ -215,3 +225,7 @@ make generate    # recompile bpf/shooter.bpf.c and regenerate the Go bindings
 The generated bindings in `internal/bpfobj/` are committed. CI regenerates them and
 fails if they differ, so commit the output of `make generate` along with any change
 to the C program.
+
+To cut a release, push a version tag: `git tag v0.1.0 && git push origin v0.1.0`.
+The release workflow builds the amd64 and arm64 binaries and publishes them with
+checksums and generated release notes.
