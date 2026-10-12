@@ -15,7 +15,7 @@ concurrency:
 jobs:
   daemon:
     name: Daemon + BPF
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       # bpf2go needs clang to compile bpf/shooter.bpf.c and llvm-strip to strip
@@ -31,8 +31,8 @@ jobs:
       # The generated bindings and the BPF object are committed, so a change to
       # the C program arrives as a reviewable diff. This catches a .bpf.c edit
       # whose regenerated object nobody committed. The object is byte-for-byte
-      # reproducible with the same clang major; if ubuntu-latest moves to a new
-      # clang, regenerate with that version (or pin runs-on).
+      # reproducible with the same clang major, so runs-on is pinned to
+      # ubuntu-24.04 (clang 18); bump both together.
       - name: BPF object is up to date
         run: |
           go generate ./internal/bpfobj/
@@ -49,7 +49,7 @@ jobs:
 
   web:
     name: Web UI
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

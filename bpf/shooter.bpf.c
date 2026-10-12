@@ -13,8 +13,6 @@
 #include <linux/in.h>
 #include <linux/tcp.h>
 #include <linux/udp.h>
-#include <linux/icmp.h>
-#include <linux/icmpv6.h>
 #include <bpf_helpers.h>
 #include <bpf_endian.h>
 
