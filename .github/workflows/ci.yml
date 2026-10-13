@@ -62,3 +62,31 @@ jobs:
           for f in web/js/*.js; do
             node --experimental-default-type=module --check "$f" || exit 1
           done
+
+  godot:
+    name: Godot client
+    runs-on: ubuntu-24.04
+    env:
+      GODOT_VERSION: 4.4.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache Godot
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}
+      - name: Download Godot
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot && cd ~/godot
+          curl -fsSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip && rm godot.zip && mv Godot_v* godot
+      # Headless run against the built-in demo traffic: packets must spawn and
+      # at least one flow must get blocked. Any script error fails the job too.
+      - name: Smoke test
+        run: |
+          ~/godot/godot --headless --path godot --import > import.log 2>&1 || true
+          ~/godot/godot --headless --path godot -- --demo --selftest 2>&1 | tee run.log
+          grep -q "SELFTEST OK" run.log
+          if grep -h "SCRIPT ERROR" import.log run.log; then exit 1; fi

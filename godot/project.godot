@@ -1,0 +1,24 @@
+; Engine configuration file.
+; Flowbreaker: XDP, native frontend. Talks to the flowbreaker daemon over the
+; same WebSocket protocol as the web UI (see ../docs/protocol.md).
+
+config_version=5
+
+[application]
+
+config/name="Flowbreaker: XDP"
+config/description="You are the firewall."
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.4", "Forward Plus")
+config/icon="res://icon.png"
+
+[display]
+
+window/size/viewport_width=1600
+window/size/viewport_height=900
+window/stretch/aspect="expand"
+
+[rendering]
+
+anti_aliasing/quality/msaa_3d=2
+environment/defaults/default_clear_color=Color(0.02, 0.024, 0.06, 1)

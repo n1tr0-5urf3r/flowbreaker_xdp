@@ -102,8 +102,11 @@ flowchart LR
     subgraph U["User space"]
         D["flowbreaker (Go)<br/>cilium/ebpf"]
         G["Browser game<br/>Three.js"]
+        N["Native client<br/>Godot 4"]
         D -- "WebSocket: packets" --> G
         G -- "kill {flow id}" --> D
+        D -. "same protocol" .-> N
+        N -.-> D
     end
 
     D -- "insert 5-tuple" --> BL
@@ -118,6 +121,10 @@ flowchart LR
   only flows the daemon actually saw.
 * **Game:** `web/` is plain ES modules with a vendored Three.js r170. No bundler, no
   `node_modules`. It is embedded into the binary.
+* **Native client:** `godot/` is a Godot 4 frontend that speaks the same protocol
+  ([docs/protocol.md](docs/protocol.md)). Both frontends can play at the same time.
+  It has the web version's features (arsenal, vehicles, turrets, bosses, progression,
+  skins, procedural sound and music) plus its own non-linear worlds (see below).
 
 ## Quick start
 
@@ -168,6 +175,48 @@ the binary.
 | `-protect-hosts` | `api.anthropic.com,claude.ai` | never-droppable remote hosts: hostnames, IPs or CIDRs |
 | `-max-eps` | `150` | sampled packets per second sent to the UI |
 | `-sample` | `200ms` | minimum gap between two samples of one flow |
+| `-token` | random | session token for UI clients |
+| `-session-file` | `/run/user/<uid>/flowbreaker.json` | where native clients find the address and token (`""` disables) |
+
+### Native client (Godot, optional)
+
+With [Godot 4.4+](https://godotengine.org/download) installed and the daemon running,
+`make godot` starts the native client. It finds the daemon on its own through the
+session file the daemon writes to `/run/user/<uid>/flowbreaker.json`; `--url=` and
+`--token=` override that. `make godot-demo` runs it against simulated traffic.
+
+It has four levels. Pick one from the menu at start, or switch any time with <kbd>Tab</kbd>:
+
+| Level | What it is |
+|---|---|
+| **Topology Arena** | Your host is a fortress in the middle of an open map. Every remote network (IPv4 /24, IPv6 /48) opens a portal on a ring around it, so the map grows out of your real traffic. TCP flows snake in as trains, UDP scatters, ICMP bounces. Shoot a portal to block every live flow from that network. |
+| **Swarm Arena** | A walled arena with pillars. Packets flock at the core from every side as boids: TCP on the ground, UDP and ICMP through the air. |
+| **Graph Space** | No floor: your host is the hub of a live 3D graph. Remote hosts are nodes clustered by /16, every flow is an edge, and you fly a ship through it. A blocked flow's edge is cut. |
+| **Classic Lanes** | The original board, one lane per protocol. |
+
+In the open levels: <kbd>WASD</kbd> to move (<kbd>E</kbd>/<kbd>Q</kbd> up and down in space, <kbd>Shift</kbd> boost), the mouse
+aims (hovering a packet locks onto it), the wheel zooms, and a radar shows the whole map.
+
+| Keys | Native client |
+|---|---|
+| <kbd>1</kbd>–<kbd>5</kbd>, right-click | blaster, laser, rockets, grenades, cluster bombs |
+| <kbd>F</kbd> | airstrike along a line through your aim point |
+| <kbd>T</kbd> / <kbd>H</kbd> / <kbd>J</kbd> | tank (ram packets), helicopter, jet; same key again to get out |
+| <kbd>B</kbd> / <kbd>X</kbd> / <kbd>E</kbd> | build a turret at the aim point / sell it / climb into its cockpit (<kbd>R</kbd> reloads) |
+| <kbd>G</kbd> | AI gunship (40 s patrol) |
+| <kbd>U</kbd> / <kbd>K</kbd> / <kbd>O</kbd> | armory (upgrades, ammo) / research (perks, medals) / skins |
+| <kbd>M</kbd>, <kbd>Tab</kbd>, <kbd>Esc</kbd> | mute, level menu, PANIC (also dismantles turrets, recalls gunships, cancels airstrikes) |
+
+<table>
+  <tr>
+    <td><img src="docs/screenshot-godot.png" alt="Graph Space level"></td>
+    <td><img src="docs/screenshot-godot-arena.png" alt="Topology Arena level with radar"></td>
+  </tr>
+  <tr>
+    <td align="center">Graph Space</td>
+    <td align="center">Topology Arena</td>
+  </tr>
+</table>
 
 ## Controls
 
