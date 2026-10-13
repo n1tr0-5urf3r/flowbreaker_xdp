@@ -67,6 +67,33 @@ func TestForeignOriginRejected(t *testing.T) {
 	}
 }
 
+// Backends may return nil slices; clients must still get JSON arrays.
+func TestRulesNeverNull(t *testing.T) {
+	s, _, ts := setup(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	go s.Pump(ctx, make(chan engine.Packet))
+	c, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(ts.URL, "http")+"/ws?token="+s.Token, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.CloseNow()
+	for {
+		_, b, err := c.Read(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var m map[string]json.RawMessage
+		json.Unmarshal(b, &m)
+		if string(m["t"]) == `"rules"` {
+			if got := string(m["rules"]); got != "[]" {
+				t.Fatalf("rules = %s, want []", got)
+			}
+			return
+		}
+	}
+}
+
 func TestCommands(t *testing.T) {
 	s, be, ts := setup(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)

@@ -6,9 +6,9 @@ let game;
 const conn = new Connection({
   status: (s) => ui.setStatus(s),
   hello: (m) => ui.setHello(m.hello),
-  batch: (m) => game.onBatch(m.pkts),
+  batch: (m) => game.onBatch(m.pkts ?? []),
   stats: (m) => ui.setStats(m.stats),
-  rules: (m) => { ui.setRules(m.rules); game.onRules(m.rules); },
+  rules: (m) => { const rules = m.rules ?? []; ui.setRules(rules); game.onRules(rules); },
   killed: (m) => game.onKilled(m),
   deflect: (m) => game.onDeflect(m),
   panicked: (m) => game.onPanicked(m),

@@ -34,6 +34,8 @@ func main() {
 	ttl := flag.Duration("ttl", 60*time.Second, "how long a shot flow stays blocked (0 = until exit)")
 	maxEPS := flag.Int("max-eps", 150, "max sampled packets per second sent to the UI")
 	sample := flag.Duration("sample", 200*time.Millisecond, "min interval between two samples of the same flow")
+	token := flag.String("token", "", "session token for UI clients (default: random)")
+	sessionFile := flag.String("session-file", defaultSessionPath(), "where to publish listen address + token for native clients (\"\" disables)")
 	flag.Parse()
 	if *showVersion {
 		fmt.Println("flowbreaker", version)
@@ -77,6 +79,9 @@ func main() {
 		Iface: *iface, Mode: eng.Mode(), Protect: policy.Strings(), ProtectHosts: protectHostList(phosts, pnets),
 		TTL: ttl.Seconds(), MaxEPS: *maxEPS,
 	}, web.FS)
+	if *token != "" {
+		srv.Token = *token
+	}
 
 	pkts := make(chan engine.Packet, 1024)
 	go func() {
@@ -99,6 +104,15 @@ func main() {
 		defer cancel()
 		hs.Shutdown(sctx)
 	}()
+	if *sessionFile != "" {
+		cleanup, err := writeSession(*sessionFile, ln.Addr().String(), srv.Token)
+		if err != nil {
+			log.Printf("WARNING: %v (native clients will need -token)", err)
+		} else {
+			defer cleanup()
+			log.Printf("session for native clients: %s", *sessionFile)
+		}
+	}
 	log.Printf("open http://%s/?token=%s", ln.Addr(), srv.Token)
 	if err := hs.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Print(err)

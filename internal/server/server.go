@@ -112,6 +112,9 @@ func (s *Server) Pump(ctx context.Context, pkts <-chan engine.Packet) {
 			}
 		case <-slow.C:
 			rules := s.be.Rules()
+			if rules == nil {
+				rules = []engine.Rule{} // a JSON array, never null
+			}
 			s.broadcast(map[string]any{"t": "stats", "stats": s.be.Stats()})
 			s.broadcast(map[string]any{"t": "rules", "rules": rules})
 			if len(rules) > 0 && time.Since(time.Unix(0, s.lastHB.Load())) > deadManTimeout {

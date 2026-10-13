@@ -349,7 +349,7 @@ func (e *Engine) Rules() []Rule {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	now := monoNow()
-	var rules []Rule
+	rules := []Rule{} // never nil: clients expect a JSON array, not null
 	var expired []flow.Key
 	var k flow.Key
 	var v bpfobj.ShooterBlockVal
